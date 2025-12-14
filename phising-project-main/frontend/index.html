@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Phishing Detector</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="data:," />
+
+  <style>
+    .wrap-url { overflow-wrap: break-word; word-break: break-word; white-space: normal; }
+    .no-overflow * { max-width: 100%; overflow: hidden; }
+    .json-box {
+      overflow-x: auto;
+      overflow-y: auto;
+      max-height: 250px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    textarea { max-height: 150px; }
+
+    /* Result badge loading animation */
+    .badge-loading {
+      background-color: #475569; /* slate */
+      color: white;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+
+  </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6">
+<div class="no-overflow w-full max-w-3xl bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700 relative">
+
+
+  <h1 class="text-3xl font-bold text-center mb-2 tracking-tight">🔍 Phishing URL Detector</h1>
+  <p class="text-sm text-slate-400 text-center mb-6">Paste a URL and get a simple verdict: <span class="font-semibold">Phishing</span> or <span class="font-semibold">Legitimate</span>.</p>
+
+  <div class="grid gap-4">
+    <textarea id="url" rows="2"
+      class="w-full p-3 rounded-lg bg-slate-700 text-white focus:outline-none resize-y wrap-url"
+      placeholder="Paste URL here (supports very long URLs)…"></textarea>
+
+    <div class="flex gap-3">
+      <button id="scanBtn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 py-3 rounded-lg font-semibold">Scan</button>
+      <button id="clearBtn" class="flex-1 bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-medium">Clear</button>
+    </div>
+
+    <div id="resultCard" class="hidden mt-4 bg-slate-800 p-5 rounded-xl border border-slate-700">
+      <div class="flex items-start justify-between gap-4">
+        <div class="flex-1 max-w-[75%] wrap-url">
+          <div id="resultLabel" class="text-lg font-bold break-words"></div>
+          <div id="resultSub" class="text-xs text-slate-400 mt-1">Model outputs</div>
+        </div>
+        <div class="flex flex-col items-end gap-2">
+          <div id="finalBadge" class="px-3 py-1 rounded-full font-semibold"></div>
+          <button id="copyBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs">Copy JSON</button>
+        </div>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-300">Neural Network</span>
+            <span id="nn_label" class="font-semibold"></span>
+          </div>
+        </div>
+
+        <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-300">Random Forest</span>
+            <span id="rf_label" class="font-semibold"></span>
+          </div>
+        </div>
+      </div>
+
+      <pre id="jsonOut" class="json-box mt-4 p-3 bg-black/50 rounded-lg text-xs text-slate-300"></pre>
+    </div>
+  </div>
+
+  <p class="mt-6 text-[11px] text-slate-500 text-center">Ensure backend feature extraction matches model training features.</p>
+</div>
+
+<script>
+const API = "http://127.0.0.1:5000/predict";
+const el = id => document.getElementById(id);
+
+const setFinalBadge = (label, loading = false) => {
+  const badge = el("finalBadge");
+  badge.className = "px-3 py-1 rounded-full font-semibold";
+
+  if (loading) {
+    badge.classList.add("badge-loading");
+    badge.innerText = "CHECKING…";
+    return;
+  }
+
+  if (label === "Phishing") {
+    badge.classList.add("bg-red-600", "text-white");
+  } else if (label === "Legitimate") {
+    badge.classList.add("bg-emerald-600", "text-white");
+  } else {
+    badge.classList.add("bg-slate-600", "text-white");
+  }
+
+  badge.innerText = label.toUpperCase();
+};
+
+
+document.getElementById("scanBtn").onclick = async () => {
+  const url = el("url").value.trim();
+  if (!url) return alert("Please enter a URL");
+
+  el("resultCard").classList.remove("hidden");
+  el("resultLabel").innerText = "Scanning…";
+  el("jsonOut").innerText = "";
+  setFinalBadge(null, true); // start badge animation
+
+
+  try {
+    const resp = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+
+    const data = await resp.json();
+    setTimeout(() => {
+  el("resultLabel").innerText = data.url || url;
+  el("nn_label").innerText = data.neural_network || "Unknown";
+  el("rf_label").innerText = data.random_forest || "Unknown";
+
+  setFinalBadge(data.final_result || "Unknown");
+
+  el("jsonOut").innerText = JSON.stringify(data, null, 2);
+}, 2000); // ⏱️ 2 seconds delay
+
+
+  } catch (err) {
+    el("resultLabel").innerText = "Network Error";
+    el("jsonOut").innerText = String(err);
+    setFinalBadge("Unknown");
+  } finally {
+    
+  }
+};
+
+document.getElementById("clearBtn").onclick = () => {
+  el("url").value = "";
+  el("resultCard").classList.add("hidden");
+};
+
+document.getElementById("copyBtn").onclick = () => {
+  navigator.clipboard.writeText(el("jsonOut").innerText);
+  el("copyBtn").innerText = "Copied!";
+  setTimeout(() => el("copyBtn").innerText = "Copy JSON", 1500);
+};
+</script>
+</body>
+</html>
