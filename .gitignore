@@ -16,3 +16,16 @@ Thumbs.db
 
 # Local duplicate workspace copy, not part of repo
 phishing-url-detector-main/
+
+# Local research/training workspace files (kept outside this repo scope)
+Chatgpt prompts for reasearch.txt
+add_new_messages.py
+app.py
+bert_dataset 2026.csv
+data.csv
+data/
+modal.py
+model/
+src/
+test_modal.py
+tests/
