@@ -5,12 +5,14 @@ import joblib
 import tensorflow as tf
 from feature_extract import extract_features
 from suggestions import suggest_alternative
+from message_classifier import predict_message
 import os
 
 
 
 app = Flask(__name__)
 CORS(app)
+MESSAGE_CONFIDENCE_THRESHOLD = 0.75
 
 # Paths (ensure model & scaler files are here)
 BASE_DIR = os.path.dirname(__file__)
@@ -122,6 +124,37 @@ def predict():
         "neural_network": nn_label,
         "random_forest": rf_label,
         "suggested_links": suggested_links
+    })
+
+
+@app.route("/predict-message", methods=["POST"])
+def predict_message_endpoint():
+    data = request.get_json()
+    if not data or "message" not in data:
+        return jsonify({"error": "Send JSON: {\"message\":\"Your text here\"}"}), 400
+
+    message = str(data["message"]).strip()
+    if not message:
+        return jsonify({"error": "message cannot be empty"}), 400
+
+    try:
+        stp_label, confidence = predict_message(message)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        return jsonify({"error": "Message model inference failed", "detail": str(e)}), 500
+
+    if confidence < MESSAGE_CONFIDENCE_THRESHOLD:
+        final_result = "Unknown"
+    else:
+        final_result = "Phishing" if stp_label == "P" else "Legitimate"
+
+    return jsonify({
+        "message": message,
+        "stp_label": stp_label,
+        "confidence": confidence,
+        "final_result": final_result,
+        "threshold": MESSAGE_CONFIDENCE_THRESHOLD
     })
 
 

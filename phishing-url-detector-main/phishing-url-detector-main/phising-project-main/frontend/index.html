@@ -40,11 +40,16 @@
 <div class="no-overflow w-full max-w-3xl bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700 relative">
 
 
-  <h1 class="text-3xl font-bold text-center mb-2 tracking-tight">🔍 Phishing URL Detector</h1>
-  <p class="text-sm text-slate-400 text-center mb-6">Paste a URL and get a simple verdict: <span class="font-semibold">Phishing</span> or <span class="font-semibold">Legitimate</span>.</p>
+  <h1 class="text-3xl font-bold text-center mb-2 tracking-tight">🔍 Phishing Detector</h1>
+  <p class="text-sm text-slate-400 text-center mb-6">Scan either a URL or a WhatsApp message and get a verdict: <span class="font-semibold">Phishing</span>, <span class="font-semibold">Legitimate</span>, or <span class="font-semibold">Unknown</span>.</p>
 
   <div class="grid gap-4">
-    <textarea id="url" rows="2"
+    <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
+      <button id="modeUrlBtn" class="py-2 rounded-md text-sm font-semibold">URL Scan</button>
+      <button id="modeMessageBtn" class="py-2 rounded-md text-sm font-semibold">Message Scan</button>
+    </div>
+
+    <textarea id="inputText" rows="2"
       class="w-full p-3 rounded-lg bg-slate-700 text-white focus:outline-none resize-y wrap-url"
       placeholder="Paste URL here (supports very long URLs)…"></textarea>
 
@@ -68,15 +73,15 @@
       <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
           <div class="flex justify-between text-sm">
-            <span class="text-slate-300">Neural Network</span>
-            <span id="nn_label" class="font-semibold"></span>
+            <span id="detailLeftLabel" class="text-slate-300">Neural Network</span>
+            <span id="detailLeftValue" class="font-semibold"></span>
           </div>
         </div>
 
         <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
           <div class="flex justify-between text-sm">
-            <span class="text-slate-300">Random Forest</span>
-            <span id="rf_label" class="font-semibold"></span>
+            <span id="detailRightLabel" class="text-slate-300">Random Forest</span>
+            <span id="detailRightValue" class="font-semibold"></span>
           </div>
         </div>
       </div>
@@ -89,8 +94,35 @@
 </div>
 
 <script>
-const API = "http://127.0.0.1:5000/predict";
+const API_URL = "http://127.0.0.1:5000/predict";
+const API_MESSAGE = "http://127.0.0.1:5000/predict-message";
 const el = id => document.getElementById(id);
+let mode = "url";
+
+const applyModeStyles = () => {
+  const urlBtn = el("modeUrlBtn");
+  const msgBtn = el("modeMessageBtn");
+  const input = el("inputText");
+  const leftLabel = el("detailLeftLabel");
+  const rightLabel = el("detailRightLabel");
+  const sub = el("resultSub");
+
+  if (mode === "url") {
+    urlBtn.className = "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
+    msgBtn.className = "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
+    input.placeholder = "Paste URL here (supports very long URLs)…";
+    leftLabel.innerText = "Neural Network";
+    rightLabel.innerText = "Random Forest";
+    sub.innerText = "Model outputs";
+  } else {
+    msgBtn.className = "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
+    urlBtn.className = "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
+    input.placeholder = "Paste WhatsApp message text here…";
+    leftLabel.innerText = "S/T/P Label";
+    rightLabel.innerText = "Confidence";
+    sub.innerText = "Message classifier output";
+  }
+};
 
 const setFinalBadge = (label, loading = false) => {
   const badge = el("finalBadge");
@@ -114,33 +146,53 @@ const setFinalBadge = (label, loading = false) => {
 };
 
 
+document.getElementById("modeUrlBtn").onclick = () => {
+  mode = "url";
+  applyModeStyles();
+};
+
+document.getElementById("modeMessageBtn").onclick = () => {
+  mode = "message";
+  applyModeStyles();
+};
+
 document.getElementById("scanBtn").onclick = async () => {
-  const url = el("url").value.trim();
-  if (!url) return alert("Please enter a URL");
+  const inputText = el("inputText").value.trim();
+  if (!inputText) return alert(mode === "url" ? "Please enter a URL" : "Please enter a message");
 
   el("resultCard").classList.remove("hidden");
   el("resultLabel").innerText = "Scanning…";
   el("jsonOut").innerText = "";
+  el("detailLeftValue").innerText = "";
+  el("detailRightValue").innerText = "";
   setFinalBadge(null, true); // start badge animation
 
 
   try {
-    const resp = await fetch(API, {
+    const endpoint = mode === "url" ? API_URL : API_MESSAGE;
+    const payload = mode === "url" ? { url: inputText } : { message: inputText };
+    const resp = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url })
+      body: JSON.stringify(payload)
     });
 
     const data = await resp.json();
     setTimeout(() => {
-  el("resultLabel").innerText = data.url || url;
-  el("nn_label").innerText = data.neural_network || "Unknown";
-  el("rf_label").innerText = data.random_forest || "Unknown";
+      if (mode === "url") {
+        el("resultLabel").innerText = data.url || inputText;
+        el("detailLeftValue").innerText = data.neural_network || "Unknown";
+        el("detailRightValue").innerText = data.random_forest || "Unknown";
+      } else {
+        el("resultLabel").innerText = data.message || inputText;
+        el("detailLeftValue").innerText = data.stp_label || "Unknown";
+        const conf = Number.isFinite(data.confidence) ? data.confidence.toFixed(3) : "Unknown";
+        el("detailRightValue").innerText = conf;
+      }
 
-  setFinalBadge(data.final_result || "Unknown");
-
-  el("jsonOut").innerText = JSON.stringify(data, null, 2);
-}, 2000); // ⏱️ 2 seconds delay
+      setFinalBadge(data.final_result || "Unknown");
+      el("jsonOut").innerText = JSON.stringify(data, null, 2);
+    }, 2000);
 
 
   } catch (err) {
@@ -153,7 +205,7 @@ document.getElementById("scanBtn").onclick = async () => {
 };
 
 document.getElementById("clearBtn").onclick = () => {
-  el("url").value = "";
+  el("inputText").value = "";
   el("resultCard").classList.add("hidden");
 };
 
@@ -162,6 +214,8 @@ document.getElementById("copyBtn").onclick = () => {
   el("copyBtn").innerText = "Copied!";
   setTimeout(() => el("copyBtn").innerText = "Copy JSON", 1500);
 };
+
+applyModeStyles();
 </script>
 </body>
 </html>
