@@ -1,0 +1,5 @@
+# Keep this repository focused on phishing-url-detector project files.
+*
+!.gitignore
+!phishing-url-detector-main/
+!phishing-url-detector-main/**
