@@ -14,9 +14,7 @@ def _resolve_model_dir(base_dir: str) -> str:
     configured = os.getenv("MESSAGE_MODEL_DIR")
     if configured:
         return configured
-    return os.path.abspath(
-        os.path.join(base_dir, "..", "..", "..", "..", "model", "saved_model")
-    )
+    return os.path.abspath(os.path.join(base_dir, "..", "..", "model", "saved_model"))
 
 
 def _load_model():

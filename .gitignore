@@ -1,5 +1,18 @@
-# Keep this repository focused on phishing-url-detector project files.
-*
-!.gitignore
-!phishing-url-detector-main/
-!phishing-url-detector-main/**
+# Virtual environment
+venv/
+.venv/
+.venvScriptsactivate/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+
+# Local duplicate workspace copy, not part of repo
+phishing-url-detector-main/
