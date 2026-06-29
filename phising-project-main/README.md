@@ -1,9 +1,10 @@
 # Phishing URL Detection System
 
-This project detects whether a given URL is **Phishing** or **Legitimate**
+This project detects whether a given URL is Phishing or Legitimate
 using Machine Learning (Random Forest + Neural Network).
 
 ## Features
+
 - URL-based phishing detection
 - Dual-model prediction (NN + RF)
 - Safe alternative link suggestions
@@ -11,6 +12,7 @@ using Machine Learning (Random Forest + Neural Network).
 - Flask REST API backend
 
 ## Tech Stack
+
 - Python
 - Flask
 - Scikit-learn
@@ -32,3 +34,4 @@ pip install -r requirements.txt
 # run backend
 cd phising-project-main/backend
 python app.py
+```

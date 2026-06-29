@@ -1,221 +1,294 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Phishing Detector</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="icon" href="data:," />
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Phishing Detector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:," />
 
-  <style>
-    .wrap-url { overflow-wrap: break-word; word-break: break-word; white-space: normal; }
-    .no-overflow * { max-width: 100%; overflow: hidden; }
-    .json-box {
-      overflow-x: auto;
-      overflow-y: auto;
-      max-height: 250px;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-    textarea { max-height: 150px; }
-
-    /* Result badge loading animation */
-    .badge-loading {
-      background-color: #475569; /* slate */
-      color: white;
-      animation: pulse 1s infinite;
-    }
-
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-
-
-  </style>
-</head>
-
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6">
-<div class="no-overflow w-full max-w-3xl bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700 relative">
-
-
-  <h1 class="text-3xl font-bold text-center mb-2 tracking-tight">🔍 Phishing Detector</h1>
-  <p class="text-sm text-slate-400 text-center mb-6">Scan either a URL or a WhatsApp message and get a verdict: <span class="font-semibold">Phishing</span>, <span class="font-semibold">Legitimate</span>, or <span class="font-semibold">Unknown</span>.</p>
-
-  <div class="grid gap-4">
-    <div class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
-      <button id="modeUrlBtn" class="py-2 rounded-md text-sm font-semibold">URL Scan</button>
-      <button id="modeMessageBtn" class="py-2 rounded-md text-sm font-semibold">Message Scan</button>
-    </div>
-
-    <textarea id="inputText" rows="2"
-      class="w-full p-3 rounded-lg bg-slate-700 text-white focus:outline-none resize-y wrap-url"
-      placeholder="Paste URL here (supports very long URLs)…"></textarea>
-
-    <div class="flex gap-3">
-      <button id="scanBtn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 py-3 rounded-lg font-semibold">Scan</button>
-      <button id="clearBtn" class="flex-1 bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-medium">Clear</button>
-    </div>
-
-    <div id="resultCard" class="hidden mt-4 bg-slate-800 p-5 rounded-xl border border-slate-700">
-      <div class="flex items-start justify-between gap-4">
-        <div class="flex-1 max-w-[75%] wrap-url">
-          <div id="resultLabel" class="text-lg font-bold break-words"></div>
-          <div id="resultSub" class="text-xs text-slate-400 mt-1">Model outputs</div>
-        </div>
-        <div class="flex flex-col items-end gap-2">
-          <div id="finalBadge" class="px-3 py-1 rounded-full font-semibold"></div>
-          <button id="copyBtn" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs">Copy JSON</button>
-        </div>
-      </div>
-
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
-          <div class="flex justify-between text-sm">
-            <span id="detailLeftLabel" class="text-slate-300">Neural Network</span>
-            <span id="detailLeftValue" class="font-semibold"></span>
-          </div>
-        </div>
-
-        <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
-          <div class="flex justify-between text-sm">
-            <span id="detailRightLabel" class="text-slate-300">Random Forest</span>
-            <span id="detailRightValue" class="font-semibold"></span>
-          </div>
-        </div>
-      </div>
-
-      <pre id="jsonOut" class="json-box mt-4 p-3 bg-black/50 rounded-lg text-xs text-slate-300"></pre>
-    </div>
-  </div>
-
-  <p class="mt-6 text-[11px] text-slate-500 text-center">Ensure backend feature extraction matches model training features.</p>
-</div>
-
-<script>
-const API_URL = "http://127.0.0.1:5000/predict";
-const API_MESSAGE = "http://127.0.0.1:5000/predict-message";
-const el = id => document.getElementById(id);
-let mode = "url";
-
-const applyModeStyles = () => {
-  const urlBtn = el("modeUrlBtn");
-  const msgBtn = el("modeMessageBtn");
-  const input = el("inputText");
-  const leftLabel = el("detailLeftLabel");
-  const rightLabel = el("detailRightLabel");
-  const sub = el("resultSub");
-
-  if (mode === "url") {
-    urlBtn.className = "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
-    msgBtn.className = "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
-    input.placeholder = "Paste URL here (supports very long URLs)…";
-    leftLabel.innerText = "Neural Network";
-    rightLabel.innerText = "Random Forest";
-    sub.innerText = "Model outputs";
-  } else {
-    msgBtn.className = "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
-    urlBtn.className = "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
-    input.placeholder = "Paste WhatsApp message text here…";
-    leftLabel.innerText = "S/T/P Label";
-    rightLabel.innerText = "Confidence";
-    sub.innerText = "Message classifier output";
-  }
-};
-
-const setFinalBadge = (label, loading = false) => {
-  const badge = el("finalBadge");
-  badge.className = "px-3 py-1 rounded-full font-semibold";
-
-  if (loading) {
-    badge.classList.add("badge-loading");
-    badge.innerText = "CHECKING…";
-    return;
-  }
-
-  if (label === "Phishing") {
-    badge.classList.add("bg-red-600", "text-white");
-  } else if (label === "Legitimate") {
-    badge.classList.add("bg-emerald-600", "text-white");
-  } else {
-    badge.classList.add("bg-slate-600", "text-white");
-  }
-
-  badge.innerText = label.toUpperCase();
-};
-
-
-document.getElementById("modeUrlBtn").onclick = () => {
-  mode = "url";
-  applyModeStyles();
-};
-
-document.getElementById("modeMessageBtn").onclick = () => {
-  mode = "message";
-  applyModeStyles();
-};
-
-document.getElementById("scanBtn").onclick = async () => {
-  const inputText = el("inputText").value.trim();
-  if (!inputText) return alert(mode === "url" ? "Please enter a URL" : "Please enter a message");
-
-  el("resultCard").classList.remove("hidden");
-  el("resultLabel").innerText = "Scanning…";
-  el("jsonOut").innerText = "";
-  el("detailLeftValue").innerText = "";
-  el("detailRightValue").innerText = "";
-  setFinalBadge(null, true); // start badge animation
-
-
-  try {
-    const endpoint = mode === "url" ? API_URL : API_MESSAGE;
-    const payload = mode === "url" ? { url: inputText } : { message: inputText };
-    const resp = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await resp.json();
-    setTimeout(() => {
-      if (mode === "url") {
-        el("resultLabel").innerText = data.url || inputText;
-        el("detailLeftValue").innerText = data.neural_network || "Unknown";
-        el("detailRightValue").innerText = data.random_forest || "Unknown";
-      } else {
-        el("resultLabel").innerText = data.message || inputText;
-        el("detailLeftValue").innerText = data.stp_label || "Unknown";
-        const conf = Number.isFinite(data.confidence) ? data.confidence.toFixed(3) : "Unknown";
-        el("detailRightValue").innerText = conf;
+    <style>
+      .wrap-url {
+        overflow-wrap: break-word;
+        word-break: break-word;
+        white-space: normal;
+      }
+      .no-overflow * {
+        max-width: 100%;
+        overflow: hidden;
+      }
+      .json-box { 
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 250px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      textarea {
+        max-height: 150px;
       }
 
-      setFinalBadge(data.final_result || "Unknown");
-      el("jsonOut").innerText = JSON.stringify(data, null, 2);
-    }, 2000);
+      /* Result badge loading animation */
+      .badge-loading {
+        background-color: #475569; /* slate */
+        color: white;
+        animation: pulse 1s infinite;
+      }
 
+      @keyframes pulse {
+        0% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.6;
+        }
+      }
+    </style>
+  </head>
 
-  } catch (err) {
-    el("resultLabel").innerText = "Network Error";
-    el("jsonOut").innerText = String(err);
-    setFinalBadge("Unknown");
-  } finally {
-    
-  }
-};
+  <body
+    class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-6"
+  >
+    <div
+      class="no-overflow w-full max-w-3xl bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700 relative"
+    >
+      <h1 class="text-3xl font-bold text-center mb-2 tracking-tight">
+        🔍 Phishing Detector
+      </h1>
+      <p class="text-sm text-slate-400 text-center mb-6">
+        Scan either a URL or a WhatsApp message and get a verdict:
+        <span class="font-semibold">Phishing</span>,
+        <span class="font-semibold">Legitimate</span>, or
+        <span class="font-semibold">Unknown</span>.
+      </p>
 
-document.getElementById("clearBtn").onclick = () => {
-  el("inputText").value = "";
-  el("resultCard").classList.add("hidden");
-};
+      <div class="grid gap-4">
+        <div
+          class="grid grid-cols-2 gap-2 bg-slate-900/60 p-1 rounded-lg border border-slate-700"
+        >
+          <button id="modeUrlBtn" class="py-2 rounded-md text-sm font-semibold">
+            URL Scan
+          </button>
+          <button
+            id="modeMessageBtn"
+            class="py-2 rounded-md text-sm font-semibold"
+          >
+            Message Scan
+          </button>
+        </div>
 
-document.getElementById("copyBtn").onclick = () => {
-  navigator.clipboard.writeText(el("jsonOut").innerText);
-  el("copyBtn").innerText = "Copied!";
-  setTimeout(() => el("copyBtn").innerText = "Copy JSON", 1500);
-};
+        <textarea
+          id="inputText"
+          rows="2"
+          class="w-full p-3 rounded-lg bg-slate-700 text-white focus:outline-none resize-y wrap-url"
+          placeholder="Paste URL here (supports very long URLs)…"
+        ></textarea>
 
-applyModeStyles();
-</script>
-</body>
+        <div class="flex gap-3">
+          <button
+            id="scanBtn"
+            class="flex-1 bg-emerald-500 hover:bg-emerald-600 py-3 rounded-lg font-semibold"
+          >
+            Scan
+          </button>
+          <button
+            id="clearBtn"
+            class="flex-1 bg-slate-600 hover:bg-slate-700 py-3 rounded-lg font-medium"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div
+          id="resultCard"
+          class="hidden mt-4 bg-slate-800 p-5 rounded-xl border border-slate-700"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 max-w-[75%] wrap-url">
+              <div id="resultLabel" class="text-lg font-bold break-words"></div>
+              <div id="resultSub" class="text-xs text-slate-400 mt-1">
+                Model outputs
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <div
+                id="finalBadge"
+                class="px-3 py-1 rounded-full font-semibold"
+              ></div>
+              <button
+                id="copyBtn"
+                class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded text-xs"
+              >
+                Copy JSON
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+              <div class="flex justify-between text-sm">
+                <span id="detailLeftLabel" class="text-slate-300"
+                  >Neural Network</span
+                >
+                <span id="detailLeftValue" class="font-semibold"></span>
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-900 rounded-xl border border-slate-700">
+              <div class="flex justify-between text-sm">
+                <span id="detailRightLabel" class="text-slate-300"
+                  >Random Forest</span
+                >
+                <span id="detailRightValue" class="font-semibold"></span>
+              </div>
+            </div>
+          </div>
+
+          <pre
+            id="jsonOut"
+            class="json-box mt-4 p-3 bg-black/50 rounded-lg text-xs text-slate-300"
+          ></pre>
+        </div>
+      </div>
+
+      <p class="mt-6 text-[11px] text-slate-500 text-center">
+        Ensure backend feature extraction matches model training features.
+      </p>
+    </div>
+
+    <script>
+      const API_URL = "http://127.0.0.1:5000/predict";
+      const API_MESSAGE = "http://127.0.0.1:5000/predict-message";
+      const el = (id) => document.getElementById(id);
+      let mode = "url";
+
+      const applyModeStyles = () => {
+        const urlBtn = el("modeUrlBtn");
+        const msgBtn = el("modeMessageBtn");
+        const input = el("inputText");
+        const leftLabel = el("detailLeftLabel");
+        const rightLabel = el("detailRightLabel");
+        const sub = el("resultSub");
+
+        if (mode === "url") {
+          urlBtn.className =
+            "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
+          msgBtn.className =
+            "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
+          input.placeholder = "Paste URL here (supports very long URLs)…";
+          leftLabel.innerText = "Neural Network";
+          rightLabel.innerText = "Random Forest";
+          sub.innerText = "Model outputs";
+        } else {
+          msgBtn.className =
+            "py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white";
+          urlBtn.className =
+            "py-2 rounded-md text-sm font-semibold bg-transparent text-slate-300";
+          input.placeholder = "Paste WhatsApp message text here…";
+          leftLabel.innerText = "S/T/P Label";
+          rightLabel.innerText = "Confidence";
+          sub.innerText = "Message classifier output";
+        }
+      };
+
+      const setFinalBadge = (label, loading = false) => {
+        const badge = el("finalBadge");
+        badge.className = "px-3 py-1 rounded-full font-semibold";
+
+        if (loading) {
+          badge.classList.add("badge-loading");
+          badge.innerText = "CHECKING…";
+          return;
+        }
+
+        if (label === "Phishing") {
+          badge.classList.add("bg-red-600", "text-white");
+        } else if (label === "Legitimate") {
+          badge.classList.add("bg-emerald-600", "text-white");
+        } else {
+          badge.classList.add("bg-slate-600", "text-white");
+        }
+
+        badge.innerText = label.toUpperCase();
+      };
+
+      document.getElementById("modeUrlBtn").onclick = () => {
+        mode = "url";
+        applyModeStyles();
+      };
+
+      document.getElementById("modeMessageBtn").onclick = () => {
+        mode = "message";
+        applyModeStyles();
+      };
+
+      document.getElementById("scanBtn").onclick = async () => {
+        const inputText = el("inputText").value.trim();
+        if (!inputText)
+          return alert(
+            mode === "url" ? "Please enter a URL" : "Please enter a message",
+          );
+
+        el("resultCard").classList.remove("hidden");
+        el("resultLabel").innerText = "Scanning…";
+        el("jsonOut").innerText = "";
+        el("detailLeftValue").innerText = "";
+        el("detailRightValue").innerText = "";
+        setFinalBadge(null, true); // start badge animation
+
+        try {
+          const endpoint = mode === "url" ? API_URL : API_MESSAGE;
+          const payload =
+            mode === "url" ? { url: inputText } : { message: inputText };
+          const resp = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          const data = await resp.json();
+          setTimeout(() => {
+            if (mode === "url") {
+              el("resultLabel").innerText = data.url || inputText;
+              el("detailLeftValue").innerText =
+                data.neural_network || "Unknown";
+              el("detailRightValue").innerText =
+                data.random_forest || "Unknown";
+            } else {
+              el("resultLabel").innerText = data.message || inputText;
+              el("detailLeftValue").innerText = data.stp_label || "Unknown";
+              const conf = Number.isFinite(data.confidence)
+                ? data.confidence.toFixed(3)
+                : "Unknown";
+              el("detailRightValue").innerText = conf;
+            }
+
+            setFinalBadge(data.final_result || "Unknown");
+            el("jsonOut").innerText = JSON.stringify(data, null, 2);
+          }, 2000);
+        } catch (err) {
+          el("resultLabel").innerText = "Network Error";
+          el("jsonOut").innerText = String(err);
+          setFinalBadge("Unknown");
+        } finally {
+        }
+      };
+
+      document.getElementById("clearBtn").onclick = () => {
+        el("inputText").value = "";
+        el("resultCard").classList.add("hidden");
+      };
+
+      document.getElementById("copyBtn").onclick = () => {
+        navigator.clipboard.writeText(el("jsonOut").innerText);
+        el("copyBtn").innerText = "Copied!";
+        setTimeout(() => (el("copyBtn").innerText = "Copy JSON"), 1500);
+      };
+
+      applyModeStyles();
+    </script>
+  </body>
 </html>

@@ -5,7 +5,7 @@ import joblib
 import tensorflow as tf
 from feature_extract import extract_features
 from suggestions import suggest_alternative
-from message_classifier import predict_message
+from message_classifier import predict_message   
 import os
 
 
@@ -25,31 +25,31 @@ print("\n=== Loading Models ===")
 # Load neural network
 try:
     nn_model = tf.keras.models.load_model(NN_MODEL_PATH)
-    print("✅ Neural Network Loaded")
+    print("[OK] Neural Network Loaded")
 except Exception as e:
     nn_model = None
-    print("❌ Neural Network load error:", e)
+    print("[ERROR] Neural Network load error:", e)
 
 # Load random forest
 try:
     rf_model = joblib.load(RF_MODEL_PATH)
-    print("✅ Random Forest Loaded")
+    print("[OK] Random Forest Loaded")
 except Exception as e:
     rf_model = None
-    print("❌ Random Forest load error:", e)
+    print("[ERROR] Random Forest load error:", e)
 
 # Load scaler (for NN)
 try:
     scaler = joblib.load(SCALER_PATH)
-    print("✅ Scaler Loaded")
+    print("[OK] Scaler Loaded")
 except Exception as e:
     scaler = None
-    print("❌ Scaler load error:", e)
+    print("[ERROR] Scaler load error:", e)
 
 
 @app.route("/")
 def home():
-    return "✅ Phishing Detection API Running"
+    return "Phishing Detection API Running"
 
 
 @app.route("/predict", methods=["POST"])
